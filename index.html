@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dėžės Atidarymo Žaidimas</title>
+  <style>
+    body {
+      background: #00FF00; /* solid green screen color */
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding-top: 50px;
+      overflow: hidden;
+    }
+
+    .case-container {
+      position: relative;
+      width: 600px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 5px solid #444;
+      border-radius: 15px;
+      background: #2e2e3e;
+      box-shadow: 0 0 15px #ff4b5c;
+    }
+
+    .slots {
+      display: flex;
+      padding: 20px 0;
+      transition: transform 5s cubic-bezier(0.2, 0.6, 0.2, 1);
+      gap: 10px;
+      overflow: visible;
+      user-select: none;
+    }
+
+    .slot {
+      flex-shrink: 0;
+      width: 100px;
+      height: 100px;
+      background: #3b3b4f;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 32px;
+      border-radius: 10px;
+      box-shadow: 0 0 5px #000;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      color: white;
+      position: relative;
+    }
+
+    .common {
+      color: #bbb;
+      background: #3b3b4f;
+    }
+    .rare {
+      color: #4af;
+      background: #2b2b4f;
+    }
+    .epic {
+      color: #f84;
+      background: #4f2b2b;
+    }
+
+    .slot.highlight {
+      animation: glow 1s infinite alternate;
+      box-shadow: 0 0 15px 5px yellow;
+      transform: scale(1.15);
+      z-index: 10;
+      position: relative;
+    }
+
+    @keyframes glow {
+      0% {
+        box-shadow: 0 0 15px 5px yellow;
+      }
+      100% {
+        box-shadow: 0 0 25px 10px yellow;
+      }
+    }
+
+    .pointer {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      height: 130px;
+      width: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-bottom: 30px solid red;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    #startBtn,
+    #resetBtn {
+      margin: 20px;
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      background: #ff4b5c;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      animation: pulse 2s infinite;
+      user-select: none;
+    }
+
+    #resetBtn {
+      display: none;
+    }
+
+    @keyframes pulse {
+      0%,
+      100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    .popup {
+      position: fixed;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #333;
+      color: #fff;
+      padding: 30px;
+      border-radius: 15px;
+      display: none;
+      z-index: 30;
+      animation: popupFade 1s ease;
+      font-size: 24px;
+      box-shadow: 0 0 20px #ff0;
+      user-select: none;
+    }
+
+    @keyframes popupFade {
+      from {
+        opacity: 0;
+        transform: scale(0.5) translate(-50%, -50%);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translate(-50%, -50%);
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>🎁 Atidaryk dėžę</h1>
+  <div class="case-container">
+    <div class="pointer"></div>
+    <div class="slots" id="slots"></div>
+  </div>
+
+  <button id="startBtn">Atidaryti</button>
+  <button id="resetBtn">Iš naujo</button>
+
+  <div class="popup" id="popup"></div>
+
+  <audio id="winSound">
+    <source
+      src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-complete-or-approved-205.wav"
+      type="audio/mpeg"
+    />
+  </audio>
+
+  <audio id="spinSound">
+    <source
+      src="https://assets.mixkit.co/sfx/preview/mixkit-slot-machine-spin-1953.wav"
+      type="audio/mpeg"
+    />
+  </audio>
+
+  <script>
+    const items = [
+      { name: "🥤", rarity: "common" },
+      { name: "❌", rarity: "common" },
+      { name: "🥤", rarity: "common" },
+      { name: "❌", rarity: "common" },
+      { name: "❌", rarity: "common" },
+      { name: "🥤", rarity: "common" },
+      { name: "❌", rarity: "common" },
+      { name: "🥤", rarity: "common" },
+      { name: "❌", rarity: "common" },
+      { name: "🥤", rarity: "common" },
+      { name: "🕒 +3h", rarity: "epic" },
+
+      { name: "🕒 +5min", rarity: "rare" },
+      { name: "🕒 +5min", rarity: "rare" },
+      { name: "🕒 +5min", rarity: "rare" },
+      { name: "🕒 +5min", rarity: "rare" },
+      { name: "🕒 +5min", rarity: "rare" },
+
+      { name: "🕒 +10min", rarity: "epic" },
+      { name: "🕒 +10min", rarity: "epic" },
+      { name: "🕒 +10min", rarity: "epic" },
+
+      { name: "🕒 +15min", rarity: "epic" },
+      { name: "🕒 +15min", rarity: "epic" },
+    ];
+
+    const chances = [
+      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 3, 4, 4, 4, 4, 4, 2, 2, 2, 1, 1,
+    ];
+
+    let extendedItems = [];
+
+    const slotsContainer = document.getElementById("slots");
+    const popup = document.getElementById("popup");
+    const startBtn = document.getElementById("startBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const winSound = document.getElementById("winSound");
+    const spinSound = document.getElementById("spinSound");
+
+    const SLOT_WIDTH = 110;
+    const VISIBLE_SLOT_INDEX = 2;
+
+    function fillSlots() {
+      slotsContainer.innerHTML = "";
+      extendedItems = [];
+      for (let i = 0; i < 5; i++) {
+        items.forEach((item) => {
+          const div = document.createElement("div");
+          div.classList.add("slot", item.rarity);
+          div.innerText = item.name;
+          slotsContainer.appendChild(div);
+          extendedItems.push(item);
+        });
+      }
+      slotsContainer.style.transition = "none";
+      slotsContainer.style.transform = "translateX(0)";
+      const totalWidth = extendedItems.length * SLOT_WIDTH;
+      slotsContainer.style.minWidth = totalWidth + "px";
+      document.querySelectorAll(".slot.highlight").forEach((el) => {
+        el.classList.remove("highlight");
+      });
+    }
+
+    function weightedRandom() {
+      const total = chances.reduce((a, b) => a + b, 0);
+      const rand = Math.random() * total;
+      let sum = 0;
+      for (let i = 0; i < chances.length; i++) {
+        sum += chances[i];
+        if (rand < sum) return i;
+      }
+      return 0;
+    }
+
+    function spin() {
+      startBtn.disabled = true;
+      resetBtn.style.display = "none";
+      popup.style.display = "none";
+      document.querySelectorAll(".slot.highlight").forEach((el) => {
+        el.classList.remove("highlight");
+      });
+
+      const selectedIndex = weightedRandom();
+      const baseIndex = 2 * items.length;
+      const finalIndex = baseIndex + selectedIndex;
+      const offset = finalIndex * SLOT_WIDTH - VISIBLE_SLOT_INDEX * SLOT_WIDTH;
+
+      spinSound.currentTime = 0;
+      spinSound.play();
+
+      slotsContainer.style.transition = "transform 5s cubic-bezier(0.2, 0.6, 0.2, 1)";
+      slotsContainer.style.transform = `translateX(-${offset}px)`;
+
+      setTimeout(() => {
+        const slotElements = document.querySelectorAll(".slot");
+        if (slotElements[finalIndex]) {
+          slotElements[finalIndex].classList.add("highlight");
+        }
+
+        popup.innerHTML = `🎉 Laimėjote: <strong>${extendedItems[finalIndex].name}</strong> (${extendedItems[finalIndex].rarity}) 🎉`;
+        popup.style.display = "block";
+
+        winSound.currentTime = 0;
+        winSound.play();
+
+        startConfetti();
+
+        resetBtn.style.display = "inline-block";
+      }, 5100);
+    }
+
+    function resetGame() {
+      popup.style.display = "none";
+      resetBtn.style.display = "none";
+      startBtn.disabled = false;
+      slotsContainer.style.transition = "none";
+      slotsContainer.style.transform = "translateX(0)";
+      document.querySelectorAll(".slot.highlight").forEach((el) => {
+        el.classList.remove("highlight");
+      });
+    }
+
+    function startConfetti() {
+      for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement("div");
+        confetti.style.position = "fixed";
+        confetti.style.width = "10px";
+        confetti.style.height = "10px";
+        confetti.style.background = `hsl(${Math.random() * 360}, 100%, 50%)`;
+        confetti.style.left = `${Math.random() * 100}%`;
+        confetti.style.top = `-20px`;
+        confetti.style.opacity = Math.random();
+        confetti.style.zIndex = 999;
+        confetti.style.borderRadius = "50%";
+        confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+        confetti.style.transition = `top 2s ease-out, opacity 2s ease-out`;
+        document.body.appendChild(confetti);
+        setTimeout(() => {
+          confetti.style.top = `${100 + Math.random() * 20}%`;
+          confetti.style.opacity = 0;
+        }, 10);
+        setTimeout(() => confetti.remove(), 3000);
+      }
+    }
+
+    startBtn.addEventListener("click", spin);
+    resetBtn.addEventListener("click", resetGame);
+
+    fillSlots();
+  </script>
+</body>
+</html>
